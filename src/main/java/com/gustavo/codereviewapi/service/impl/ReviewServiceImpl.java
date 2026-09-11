@@ -1,45 +1,77 @@
 package com.gustavo.codereviewapi.service.impl;
 
-import com.gustavo.codereviewapi.dto.FileInput;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import com.gustavo.codereviewapi.dto.FileReviewResult;
 import com.gustavo.codereviewapi.dto.ReviewRequest;
 import com.gustavo.codereviewapi.dto.ReviewResponse;
 import com.gustavo.codereviewapi.dto.enums.ReviewStatus;
+import com.gustavo.codereviewapi.exception.LlmUnavailableException;
 import com.gustavo.codereviewapi.service.ReviewService;
+import dev.langchain4j.model.chat.ChatModel;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * TODO: substituir esta implementação mock pela integração real com o LLM
- * (LangChain4j) quando essa etapa do projeto for implementada.
- *
- * Por enquanto, retorna uma lista de sugestões vazia para cada arquivo,
- * apenas para validar o contrato da API end-to-end (controller -> service
- * -> response) antes de plugar a IA de verdade.
- */
 @Service
 public class ReviewServiceImpl implements ReviewService {
 
+    private final ChatModel chatModel;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public ReviewServiceImpl(ChatModel chatModel) {
+        this.chatModel = chatModel;
+    }
+
     @Override
     public ReviewResponse review(ReviewRequest request) {
-        List<FileReviewResult> results = request.files().stream()
-                .map(this::mockResultFor)
-                .toList();
+        String prompt = ReviewPromptBuilder.build(request);
+
+        String rawResponse;
+        try {
+            rawResponse = chatModel.chat(prompt);
+        } catch (Exception ex) {
+            throw new LlmUnavailableException("Não foi possível obter resposta do provedor de LLM.", ex);
+        }
+
+        List<FileReviewResult> results = parseResponse(rawResponse);
+
+        long totalSuggestions = results.stream()
+                .mapToLong(f -> f.suggestions().size())
+                .sum();
 
         return new ReviewResponse(
                 UUID.randomUUID(),
                 ReviewStatus.COMPLETED,
                 Instant.now(),
-                "Mock: %d arquivo(s) recebido(s), integração com LLM ainda não implementada."
-                        .formatted(request.files().size()),
+                "%d arquivo(s) analisado(s), %d sugestão(ões) encontrada(s)."
+                        .formatted(request.files().size(), totalSuggestions),
                 results
         );
     }
 
-    private FileReviewResult mockResultFor(FileInput file) {
-        return new FileReviewResult(file.fileName(), List.of());
+    private List<FileReviewResult> parseResponse(String rawResponse) {
+        String json = extractJson(rawResponse);
+        try {
+            CollectionType listType = objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, FileReviewResult.class);
+            return objectMapper.readValue(json, listType);
+        } catch (Exception ex) {
+            throw new LlmUnavailableException(
+                    "O provedor de LLM retornou uma resposta em formato inesperado.", ex);
+        }
+    }
+
+    private String extractJson(String rawResponse) {
+        String trimmed = rawResponse.trim();
+        if (trimmed.startsWith("```")) {
+            trimmed = trimmed.replaceFirst("^```(json)?", "").trim();
+            if (trimmed.endsWith("```")) {
+                trimmed = trimmed.substring(0, trimmed.length() - 3).trim();
+            }
+        }
+        return trimmed;
     }
 }

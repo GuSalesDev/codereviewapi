@@ -32,15 +32,15 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!--
-            Integração com o LLM via LangChain4j.
-            Descomente e ajuste a versão quando formos implementar o ReviewServiceImpl de verdade.
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>1.20.0</version>
+        </dependency>
 
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-anthropic</artifactId>
-                <version>0.35.0</version>
-            </dependency>
+        <!--
+            Resilience4j entra aqui quando adicionarmos circuit breaker/retry
+            em torno da chamada ao LLM.
 
             <dependency>
                 <groupId>io.github.resilience4j</groupId>
