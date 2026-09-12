@@ -9,6 +9,8 @@ import com.gustavo.codereviewapi.dto.enums.ReviewStatus;
 import com.gustavo.codereviewapi.exception.LlmUnavailableException;
 import com.gustavo.codereviewapi.service.ReviewService;
 import dev.langchain4j.model.chat.ChatModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -17,6 +19,8 @@ import java.util.UUID;
 
 @Service
 public class ReviewServiceImpl implements ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewServiceImpl.class);
 
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -33,6 +37,7 @@ public class ReviewServiceImpl implements ReviewService {
         try {
             rawResponse = chatModel.chat(prompt);
         } catch (Exception ex) {
+            log.error("Falha ao chamar o LLM", ex);
             throw new LlmUnavailableException("Não foi possível obter resposta do provedor de LLM.", ex);
         }
 
@@ -59,6 +64,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .constructCollectionType(List.class, FileReviewResult.class);
             return objectMapper.readValue(json, listType);
         } catch (Exception ex) {
+            log.error("Falha ao interpretar a resposta do LLM. Resposta bruta: {}", rawResponse, ex);
             throw new LlmUnavailableException(
                     "O provedor de LLM retornou uma resposta em formato inesperado.", ex);
         }

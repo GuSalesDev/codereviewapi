@@ -20,7 +20,7 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    @PostMapping
+    @PostMapping(produces = "application/json;charset=UTF-8")
     public ResponseEntity<ReviewResponse> createReview(@Valid @RequestBody ReviewRequest request) {
         ReviewResponse response = reviewService.review(request);
         return ResponseEntity.ok(response);

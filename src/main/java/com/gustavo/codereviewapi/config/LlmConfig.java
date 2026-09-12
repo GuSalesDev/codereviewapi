@@ -17,7 +17,6 @@ public class LlmConfig {
         return OpenAiChatModel.builder()
                 .apiKey(apiKey)
                 .modelName(modelName)
-                .temperature(0.2)
                 .build();
     }
 }
